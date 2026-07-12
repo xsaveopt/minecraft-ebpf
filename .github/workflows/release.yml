@@ -1,0 +1,91 @@
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    strategy:
+      fail-fast: false
+      matrix:
+        goarch: [amd64, arm64]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version: "1.25"
+          cache: true
+
+      - name: install clang/llvm/libbpf
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            clang llvm libbpf-dev libelf-dev zip \
+            linux-headers-$(uname -r)
+
+      - name: install bpftool
+        run: |
+          BPFTOOL_VERSION=v7.7.0
+          BPFTOOL_SHA256=09150596f09356b0ff632dd7f9856e0ea86bf96b269e9bc94278d9a9432a268c
+          curl -sfL -o /tmp/bpftool.tar.gz \
+            "https://github.com/libbpf/bpftool/releases/download/${BPFTOOL_VERSION}/bpftool-${BPFTOOL_VERSION}-amd64.tar.gz"
+          echo "${BPFTOOL_SHA256}  /tmp/bpftool.tar.gz" | sha256sum -c -
+          sudo tar -xzf /tmp/bpftool.tar.gz -C /usr/local/bin bpftool
+          sudo chmod 0755 /usr/local/bin/bpftool
+          bpftool version
+
+      - name: generate vmlinux.h
+        run: scripts/gen-vmlinux.sh
+
+      - name: go generate
+        run: go generate ./...
+
+      - name: build
+        env:
+          GOOS: linux
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: "0"
+        run: |
+          mkdir -p stage
+          go build -trimpath \
+            -ldflags "-s -w -X main.version=${GITHUB_REF_NAME}" \
+            -o stage/minecraft-ebpf \
+            ./cmd/minecraft-ebpf
+          chmod 0755 stage/minecraft-ebpf
+
+      - name: stage release files
+        run: |
+          cp deploy/minecraft-ebpf.service stage/
+          cp deploy/config.example stage/
+          cp deploy/install.sh stage/
+          cp deploy/grafana/minecraft-ebpf-dashboard.json stage/
+          cp deploy/grafana/minecraft-ebpf-ips-dashboard.json stage/
+          chmod 0755 stage/install.sh
+
+      - name: package zip
+        run: |
+          ZIP="minecraft-ebpf-${GITHUB_REF_NAME}-linux-${{ matrix.goarch }}.zip"
+          (cd stage && zip -q "../$ZIP" \
+            minecraft-ebpf \
+            minecraft-ebpf.service \
+            config.example \
+            install.sh \
+            minecraft-ebpf-dashboard.json \
+            minecraft-ebpf-ips-dashboard.json)
+          sha256sum "$ZIP" > "$ZIP.sha256"
+          ls -l "$ZIP" "$ZIP.sha256"
+
+      - uses: softprops/action-gh-release@v3
+        with:
+          files: |
+            minecraft-ebpf-*-linux-*.zip
+            minecraft-ebpf-*-linux-*.zip.sha256
+          fail_on_unmatched_files: true
+          draft: false
+          generate_release_notes: true

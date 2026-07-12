@@ -1,0 +1,186 @@
+{
+  "__inputs": [
+    {
+      "name": "DS_PROMETHEUS",
+      "label": "Prometheus",
+      "description": "Prometheus instance scraping minecraft-ebpf /metrics",
+      "type": "datasource",
+      "pluginId": "prometheus",
+      "pluginName": "Prometheus"
+    }
+  ],
+  "__requires": [
+    {"type": "grafana", "id": "grafana", "name": "Grafana", "version": "10.0.0"},
+    {"type": "datasource", "id": "prometheus", "name": "Prometheus", "version": "1.0.0"},
+    {"type": "panel", "id": "stat", "name": "Stat", "version": ""},
+    {"type": "panel", "id": "timeseries", "name": "Time series", "version": ""}
+  ],
+  "annotations": {"list": []},
+  "description": "minecraft-ebpf XDP filter — verdict counters, drop reasons, handshake funnel, map capacity, blacklist.",
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "liveNow": false,
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "XDP",
+      "description": "1 = XDP program attached to NIC. 0 = daemon down or attach failed.",
+      "gridPos": {"x": 0, "y": 0, "w": 4, "h": 4},
+      "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+      "targets": [
+        {"expr": "max(minecraft_attached{program=\"xdp\"})", "refId": "A", "legendFormat": "xdp", "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"}}
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            {"type": "value", "options": {"0": {"text": "DETACHED", "color": "red", "index": 0}, "1": {"text": "ATTACHED", "color": "green", "index": 1}}}
+          ],
+          "thresholds": {"mode": "absolute", "steps": [{"color": "red", "value": null}, {"color": "green", "value": 1}]}
+        }
+      },
+      "options": {"colorMode": "background", "graphMode": "none", "reduceOptions": {"calcs": ["lastNotNull"]}}
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "sockops",
+      "description": "1 = sockops program attached to cgroup. Seeds tcp_established / tcp_open_count.",
+      "gridPos": {"x": 4, "y": 0, "w": 4, "h": 4},
+      "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+      "targets": [
+        {"expr": "max(minecraft_attached{program=\"sockops\"})", "refId": "A", "legendFormat": "sockops", "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"}}
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            {"type": "value", "options": {"0": {"text": "DETACHED", "color": "red", "index": 0}, "1": {"text": "ATTACHED", "color": "green", "index": 1}}}
+          ],
+          "thresholds": {"mode": "absolute", "steps": [{"color": "red", "value": null}, {"color": "green", "value": 1}]}
+        }
+      },
+      "options": {"colorMode": "background", "graphMode": "none", "reduceOptions": {"calcs": ["lastNotNull"]}}
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Blacklisted IPs",
+      "description": "IPs currently anomaly-blacklisted (malformed-handshake floods).",
+      "gridPos": {"x": 8, "y": 0, "w": 4, "h": 4},
+      "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+      "targets": [
+        {"expr": "max(minecraft_health_blacklisted_ips)", "refId": "A", "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"}}
+      ],
+      "fieldConfig": {"defaults": {"thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "orange", "value": 1}, {"color": "red", "value": 50}]}}},
+      "options": {"colorMode": "background", "graphMode": "area", "reduceOptions": {"calcs": ["lastNotNull"]}}
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Whitelisted IPs",
+      "description": "IPs that completed a Login handshake and flow freely.",
+      "gridPos": {"x": 12, "y": 0, "w": 4, "h": 4},
+      "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+      "targets": [
+        {"expr": "max(minecraft_map_entries{map=\"tcp_whitelist\"})", "refId": "A", "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"}}
+      ],
+      "fieldConfig": {"defaults": {"thresholds": {"mode": "absolute", "steps": [{"color": "blue", "value": null}]}}},
+      "options": {"colorMode": "background", "graphMode": "area", "reduceOptions": {"calcs": ["lastNotNull"]}}
+    },
+    {
+      "id": 5,
+      "type": "stat",
+      "title": "Established",
+      "description": "Open connections seeded by sockops (3WHS completed on port).",
+      "gridPos": {"x": 16, "y": 0, "w": 4, "h": 4},
+      "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+      "targets": [
+        {"expr": "max(minecraft_map_entries{map=\"tcp_established\"})", "refId": "A", "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"}}
+      ],
+      "fieldConfig": {"defaults": {"thresholds": {"mode": "absolute", "steps": [{"color": "blue", "value": null}]}}},
+      "options": {"colorMode": "background", "graphMode": "area", "reduceOptions": {"calcs": ["lastNotNull"]}}
+    },
+    {
+      "id": 6,
+      "type": "stat",
+      "title": "Total drop rate",
+      "description": "Packets/sec dropped across all reasons.",
+      "gridPos": {"x": 20, "y": 0, "w": 4, "h": 4},
+      "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+      "targets": [
+        {"expr": "sum(rate(minecraft_xdp_packets_total{verdict=\"drop\"}[5m]))", "refId": "A", "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"}}
+      ],
+      "fieldConfig": {"defaults": {"unit": "pps", "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "orange", "value": 100}, {"color": "red", "value": 10000}]}}},
+      "options": {"colorMode": "background", "graphMode": "area", "reduceOptions": {"calcs": ["lastNotNull"]}}
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "Verdicts (pass vs drop)",
+      "description": "rate() of minecraft_xdp_packets_total by verdict.",
+      "gridPos": {"x": 0, "y": 4, "w": 12, "h": 8},
+      "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+      "targets": [
+        {"expr": "sum by (verdict) (rate(minecraft_xdp_packets_total[5m]))", "refId": "A", "legendFormat": "{{verdict}}", "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"}}
+      ],
+      "fieldConfig": {"defaults": {"unit": "pps", "custom": {"drawStyle": "line", "fillOpacity": 20, "stacking": {"mode": "none"}}}},
+      "options": {"legend": {"displayMode": "table", "placement": "right", "calcs": ["mean", "max"]}, "tooltip": {"mode": "multi"}}
+    },
+    {
+      "id": 8,
+      "type": "timeseries",
+      "title": "Drops by reason",
+      "description": "rate() of dropped packets per reason. no_syn / global_ratelimit / too_many_open are the connection-flood layers; status_ratelimit / login_ratelimit are the per-IP handshake limiters; malformed_handshake / unhealthy are the protocol-garbage layers.",
+      "gridPos": {"x": 12, "y": 4, "w": 12, "h": 8},
+      "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+      "targets": [
+        {"expr": "sum by (reason) (rate(minecraft_xdp_packets_total{verdict=\"drop\"}[5m]))", "refId": "A", "legendFormat": "{{reason}}", "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"}}
+      ],
+      "fieldConfig": {"defaults": {"unit": "pps", "custom": {"drawStyle": "line", "fillOpacity": 20, "stacking": {"mode": "normal"}}}},
+      "options": {"legend": {"displayMode": "table", "placement": "right", "calcs": ["mean", "max"]}, "tooltip": {"mode": "multi"}}
+    },
+    {
+      "id": 9,
+      "type": "timeseries",
+      "title": "Handshake funnel",
+      "description": "Status vs Login handshakes seen, and Login promotions to the whitelist. l7_match_no_established = a Login matched but sockops had no established entry (spoofed or racy).",
+      "gridPos": {"x": 0, "y": 12, "w": 12, "h": 8},
+      "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+      "targets": [
+        {"expr": "rate(minecraft_tcp_handshake_status_seen_total[5m])", "refId": "A", "legendFormat": "status_seen", "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"}},
+        {"expr": "rate(minecraft_tcp_handshake_login_seen_total[5m])", "refId": "B", "legendFormat": "login_seen", "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"}},
+        {"expr": "rate(minecraft_tcp_l7_promoted_total[5m])", "refId": "C", "legendFormat": "promoted", "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"}},
+        {"expr": "rate(minecraft_tcp_l7_match_no_established_total[5m])", "refId": "D", "legendFormat": "no_established", "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"}}
+      ],
+      "fieldConfig": {"defaults": {"unit": "pps", "custom": {"drawStyle": "line", "fillOpacity": 10}}},
+      "options": {"legend": {"displayMode": "table", "placement": "right", "calcs": ["mean", "max"]}, "tooltip": {"mode": "multi"}}
+    },
+    {
+      "id": 10,
+      "type": "timeseries",
+      "title": "Map capacity",
+      "description": "Entry counts per pinned IP-keyed map (LRU caps at 100k). Watch for any map pinned near 100k under attack.",
+      "gridPos": {"x": 12, "y": 12, "w": 12, "h": 8},
+      "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+      "targets": [
+        {"expr": "minecraft_map_entries", "refId": "A", "legendFormat": "{{map}}", "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"}}
+      ],
+      "fieldConfig": {"defaults": {"unit": "short", "custom": {"drawStyle": "line", "fillOpacity": 10}}},
+      "options": {"legend": {"displayMode": "table", "placement": "right", "calcs": ["lastNotNull", "max"]}, "tooltip": {"mode": "multi"}}
+    }
+  ],
+  "refresh": "10s",
+  "schemaVersion": 39,
+  "tags": ["minecraft", "ddos", "xdp", "ebpf"],
+  "templating": {"list": []},
+  "time": {"from": "now-1h", "to": "now"},
+  "timepicker": {},
+  "timezone": "",
+  "title": "minecraft-ebpf",
+  "uid": "minecraft-ebpf-main",
+  "version": 1,
+  "weekStart": ""
+}

@@ -1,0 +1,84 @@
+# minecraft-ebpf runtime config. Read by systemd via EnvironmentFile=.
+# Values here become CLI flags on the `minecraft-ebpf run` invocation.
+
+# Network interface the XDP program attaches to. Find via `ip -br link`.
+IFACE=eth0
+
+# Minecraft Java server port (TCP).
+PORT=25565
+
+# Whitelist TTL — how long an IP that completed a Login handshake stays
+# trusted (rate-limit-exempt) without fresh traffic.
+TTL=10m
+
+# Prometheus /metrics listen address.
+METRICS_ADDR=:9464
+
+# BPF map pin directory. Survives process restart; cleared on reboot.
+PIN_PATH=/sys/fs/bpf/minecraft
+
+# cgroup v2 root. Change only for containerized Minecraft deployments.
+CGROUP_PATH=/sys/fs/cgroup
+
+# Per-IP Status-handshake token bucket. Status (next_state=1) and the legacy
+# 0xFE ping return the MOTD JSON — the bandwidth-amplification vector. Real
+# clients ping a handful of times while the server-list screen is open; bots
+# hammer it. Tighten if you see status_ratelimit drops from real players.
+STATUS_PER_MIN=60
+STATUS_BURST=20
+
+# Per-IP Login-handshake token bucket. Login (next_state=2) / Transfer (3)
+# drive auth + world entry — the bot-join flood vector. Real players log in
+# rarely; a few retries after a disconnect is the legitimate worst case.
+LOGIN_PER_MIN=20
+LOGIN_BURST=8
+
+# Global new-connection circuit breaker. Caps aggregate SYNs/sec to the target
+# port across all source IPs combined — fires when many-IP attacks slip through
+# per-IP limits and the sum saturates the listener. Set rate=0 to disable.
+TCP_GLOBAL_RATE=5000
+TCP_GLOBAL_BURST=15000
+
+# Per-IP cap on simultaneously-open TCP sockets to the target port. Catches
+# connection-hold / slow-loris attacks (bots that complete 3WHS but never send
+# a handshake packet, so the payload filters never fire). A real client holds
+# one Play connection plus the odd short-lived ping; 8 is comfortable headroom.
+# Applies to whitelisted IPs too (new SYNs only). 0 disables.
+TCP_MAX_OPEN_PER_IP=8
+
+# Per-IP rate cap on established + whitelisted traffic. This is what stops an IP
+# that completed a real handshake/login (and so is trusted) from then flooding:
+# gameplay is low-rate (a moving player peaks well under 60 pps), a flood is not.
+# Exceeding it drops the packet and counts an anomaly toward the blacklist.
+# CONN_PPS is sustained packets/sec, CONN_BURST the bucket depth. Raise if
+# legitimate players (or several sharing one NAT IP) trip conn_ratelimit drops.
+# Set CONN_PPS=0 to disable the packet cap.
+CONN_PPS=300
+CONN_BURST=600
+
+# Companion byte/sec cap on the same established + whitelisted traffic — a
+# backstop against low-pps large-packet floods. Legit play is well under 1 KB/s
+# upstream, so this is generous. Set CONN_BPS=0 to disable the byte cap.
+CONN_BPS=524288
+CONN_BYTE_BURST=1048576
+
+# Per-IP new-connection (SYN) rate to the target port. Stops connect/login/drop
+# churn from a single IP without capping how many connections it can hold open
+# (that is TCP_MAX_OPEN_PER_IP). Real clients open a connection or two per join.
+# Set CONN_NEW_RATE=0 to disable.
+CONN_NEW_RATE=10
+CONN_NEW_BURST=20
+
+# Anomaly health checks. A malformed handshake (packet id 0x00 decoding to a
+# bogus next_state or an over-long address) counts as an anomaly, as does a
+# packet that overflows the per-IP established/whitelisted rate cap above; an IP
+# that accumulates HEALTH_THRESHOLD anomalies within HEALTH_WINDOW is
+# blacklisted for HEALTH_BLACKLIST and, if it was whitelisted, demoted.
+HEALTH_WINDOW=60s
+HEALTH_THRESHOLD=100
+HEALTH_BLACKLIST=5m
+
+# How often to refresh the minecraft_map_entries Prometheus gauges. Iterating
+# 100k-entry LRU maps is expensive, so this is done by a background ticker
+# rather than on every /metrics scrape.
+MAP_SIZE_INTERVAL=30s

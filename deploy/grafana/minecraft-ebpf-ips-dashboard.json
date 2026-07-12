@@ -1,0 +1,132 @@
+{
+  "__inputs": [
+    {
+      "name": "DS_INFINITY",
+      "label": "Infinity",
+      "description": "Infinity datasource pointing at your minecraft-ebpf metrics URL (e.g. http://server:9464). Plugin: yesoreyeram-infinity-datasource.",
+      "type": "datasource",
+      "pluginId": "yesoreyeram-infinity-datasource",
+      "pluginName": "Infinity"
+    }
+  ],
+  "__requires": [
+    {"type": "grafana", "id": "grafana", "name": "Grafana", "version": "10.0.0"},
+    {"type": "datasource", "id": "yesoreyeram-infinity-datasource", "name": "Infinity", "version": "2.0.0"},
+    {"type": "panel", "id": "table", "name": "Table", "version": ""}
+  ],
+  "annotations": {"list": []},
+  "description": "Per-IP listings: who's whitelisted, who's blacklisted, who's holding open TCP, who's getting dropped. Live snapshots over the daemon's /api/* endpoints. Requires the Infinity datasource (yesoreyeram-infinity-datasource).",
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [],
+  "liveNow": false,
+  "panels": [
+    {
+      "id": 1,
+      "type": "table",
+      "title": "Whitelist (tcp_whitelist)",
+      "description": "IPs that completed a Login handshake over an established connection. Refreshed on every passed TCP packet; entries expire after the configured TTL.",
+      "gridPos": {"x": 0, "y": 0, "w": 12, "h": 12},
+      "datasource": {"type": "yesoreyeram-infinity-datasource", "uid": "${DS_INFINITY}"},
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {"type": "yesoreyeram-infinity-datasource", "uid": "${DS_INFINITY}"},
+          "type": "json", "source": "url", "format": "table",
+          "url": "/api/whitelist",
+          "url_options": {"method": "GET", "data": ""},
+          "root_selector": "",
+          "columns": [
+            {"selector": "ip", "text": "IP", "type": "string"},
+            {"selector": "age_seconds", "text": "Age (s)", "type": "number"}
+          ]
+        }
+      ],
+      "options": {"showHeader": true}
+    },
+    {
+      "id": 2,
+      "type": "table",
+      "title": "Blacklist (anomaly)",
+      "description": "IPs currently blocked for flooding malformed handshakes. anomalies = count in the current window; remaining = seconds until auto-unblock.",
+      "gridPos": {"x": 12, "y": 0, "w": 12, "h": 12},
+      "datasource": {"type": "yesoreyeram-infinity-datasource", "uid": "${DS_INFINITY}"},
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {"type": "yesoreyeram-infinity-datasource", "uid": "${DS_INFINITY}"},
+          "type": "json", "source": "url", "format": "table",
+          "url": "/api/blacklist",
+          "url_options": {"method": "GET", "data": ""},
+          "root_selector": "",
+          "columns": [
+            {"selector": "ip", "text": "IP", "type": "string"},
+            {"selector": "anomalies", "text": "Anomalies", "type": "number"},
+            {"selector": "blacklist_remaining_seconds", "text": "Unblock in (s)", "type": "number"}
+          ]
+        }
+      ],
+      "options": {"showHeader": true}
+    },
+    {
+      "id": 3,
+      "type": "table",
+      "title": "Open TCP sockets per IP (tcp_open_count)",
+      "description": "Concurrent open connections to the server port per source IP. High counts from one IP are connection-hold / slow-loris suspects — bounded by --tcp-max-open-per-ip.",
+      "gridPos": {"x": 0, "y": 12, "w": 12, "h": 12},
+      "datasource": {"type": "yesoreyeram-infinity-datasource", "uid": "${DS_INFINITY}"},
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {"type": "yesoreyeram-infinity-datasource", "uid": "${DS_INFINITY}"},
+          "type": "json", "source": "url", "format": "table",
+          "url": "/api/open-count",
+          "url_options": {"method": "GET", "data": ""},
+          "root_selector": "",
+          "columns": [
+            {"selector": "ip", "text": "IP", "type": "string"},
+            {"selector": "count", "text": "Open", "type": "number"}
+          ]
+        }
+      ],
+      "options": {"showHeader": true}
+    },
+    {
+      "id": 4,
+      "type": "table",
+      "title": "Drop history per IP",
+      "description": "Cumulative drops per IP since the daemon started. total is across all reasons; expand /api/drop-history for the per-reason breakdown.",
+      "gridPos": {"x": 12, "y": 12, "w": 12, "h": 12},
+      "datasource": {"type": "yesoreyeram-infinity-datasource", "uid": "${DS_INFINITY}"},
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {"type": "yesoreyeram-infinity-datasource", "uid": "${DS_INFINITY}"},
+          "type": "json", "source": "url", "format": "table",
+          "url": "/api/drop-history",
+          "url_options": {"method": "GET", "data": ""},
+          "root_selector": "",
+          "columns": [
+            {"selector": "ip", "text": "IP", "type": "string"},
+            {"selector": "total", "text": "Total drops", "type": "number"},
+            {"selector": "last_drop_age_seconds", "text": "Last drop (s ago)", "type": "number"}
+          ]
+        }
+      ],
+      "options": {"showHeader": true}
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 39,
+  "tags": ["minecraft", "ddos", "per-ip"],
+  "templating": {"list": []},
+  "time": {"from": "now-6h", "to": "now"},
+  "timepicker": {},
+  "timezone": "",
+  "title": "minecraft-ebpf — per-IP",
+  "uid": "minecraft-ebpf-ips",
+  "version": 1,
+  "weekStart": ""
+}

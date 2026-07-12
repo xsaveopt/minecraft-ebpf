@@ -1,0 +1,57 @@
+[Unit]
+Description=Minecraft (Java) XDP DDoS filter
+Documentation=https://github.com/xsaveopt/minecraft-ebpf
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+EnvironmentFile=/etc/minecraft-ebpf/config
+ExecStart=/usr/local/bin/minecraft-ebpf run \
+  --iface ${IFACE} \
+  --port ${PORT} \
+  --ttl ${TTL} \
+  --metrics-addr ${METRICS_ADDR} \
+  --pin-path ${PIN_PATH} \
+  --cgroup ${CGROUP_PATH} \
+  --status-per-min ${STATUS_PER_MIN} \
+  --status-burst ${STATUS_BURST} \
+  --login-per-min ${LOGIN_PER_MIN} \
+  --login-burst ${LOGIN_BURST} \
+  --tcp-global-rate ${TCP_GLOBAL_RATE} \
+  --tcp-global-burst ${TCP_GLOBAL_BURST} \
+  --tcp-max-open-per-ip ${TCP_MAX_OPEN_PER_IP} \
+  --conn-pps ${CONN_PPS} \
+  --conn-burst ${CONN_BURST} \
+  --conn-bps ${CONN_BPS} \
+  --conn-byte-burst ${CONN_BYTE_BURST} \
+  --conn-new-rate ${CONN_NEW_RATE} \
+  --conn-new-burst ${CONN_NEW_BURST} \
+  --health-window ${HEALTH_WINDOW} \
+  --health-threshold ${HEALTH_THRESHOLD} \
+  --health-blacklist ${HEALTH_BLACKLIST} \
+  --map-size-interval ${MAP_SIZE_INTERVAL}
+
+Restart=on-failure
+RestartSec=5s
+
+User=root
+AmbientCapabilities=CAP_BPF CAP_NET_ADMIN CAP_PERFMON
+CapabilityBoundingSet=CAP_BPF CAP_NET_ADMIN CAP_PERFMON
+NoNewPrivileges=true
+
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/sys/fs/bpf
+ProtectKernelTunables=no
+ProtectKernelModules=yes
+ProtectControlGroups=no
+PrivateTmp=yes
+ProtectHostname=yes
+ProtectClock=yes
+LockPersonality=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+
+[Install]
+WantedBy=multi-user.target

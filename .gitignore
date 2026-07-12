@@ -1,0 +1,10 @@
+bin/
+bpf/vmlinux.h
+internal/loader/minecraft*_bpfel*.go
+internal/loader/minecraft*_bpfel*.o
+.vagrant/
+*.log
+*.tcpdump
+*.pcap
+*.zst
+dist/
