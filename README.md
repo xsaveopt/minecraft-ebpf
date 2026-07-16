@@ -57,7 +57,7 @@ Zip contains binary, systemd unit, config example, install script, and two Grafa
 
 - Linux ≥ 6.1 (tested on Ubuntu 24.04 / kernel 6.8). `bpf_loop` needs 5.17+.
 - `clang`, `llvm`, `libbpf-dev`, `libelf-dev`, `bpftool`, `linux-headers-$(uname -r)`
-- Go 1.22+
+- Go 1.26+
 - cgroup v2 (default on modern distros)
 
 macOS users (Apple Silicon or Intel): use **OrbStack** for the Linux dev VM — arm64-native, handles BPF/XDP cleanly, mounts your home directory at the same path inside.
