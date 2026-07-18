@@ -72,7 +72,7 @@ func (l *Loaded) Close() error {
 		l.Health, l.IPDropHistory, l.Stats,
 	} {
 		if m != nil {
-			m.Close()
+			_ = m.Close()
 		}
 	}
 	return errors.Join(errs...)
@@ -96,11 +96,11 @@ func Load(opts Options) (*Loaded, error) {
 		closeXDPObjs(xobj)
 		return nil, fmt.Errorf("attach xdp: %w", err)
 	}
-	xobj.MinecraftXdp.Close()
+	_ = xobj.MinecraftXdp.Close()
 
 	sobj, err := loadSockops(opts)
 	if err != nil {
-		xlink.Close()
+		_ = xlink.Close()
 		closeXDPMaps(xobj)
 		return nil, err
 	}
@@ -111,15 +111,15 @@ func Load(opts Options) (*Loaded, error) {
 	})
 	if err != nil {
 		closeSockopsObjs(sobj)
-		xlink.Close()
+		_ = xlink.Close()
 		closeXDPMaps(xobj)
 		return nil, fmt.Errorf("attach sockops to %s: %w", opts.CgroupPath, err)
 	}
-	sobj.MinecraftSockops.Close()
-	sobj.TcpEstablished.Close()
-	sobj.TcpWhitelist.Close()
-	sobj.TcpOpenCount.Close()
-	sobj.Stats.Close()
+	_ = sobj.MinecraftSockops.Close()
+	_ = sobj.TcpEstablished.Close()
+	_ = sobj.TcpWhitelist.Close()
+	_ = sobj.TcpOpenCount.Close()
+	_ = sobj.Stats.Close()
 
 	return &Loaded{
 		XDPLink:            xlink,
@@ -287,13 +287,13 @@ func attachXDP(prog *ebpf.Program, ifindex int) (link.Link, string, error) {
 		Flags:     link.XDPGenericMode,
 	})
 	if err2 != nil {
-		return nil, "", fmt.Errorf("native: %v; generic: %w", err, err2)
+		return nil, "", fmt.Errorf("native: %w; generic: %w", err, err2)
 	}
 	return l, "generic", nil
 }
 
 func closeXDPObjs(o *minecraftXDPObjects) {
-	o.MinecraftXdp.Close()
+	_ = o.MinecraftXdp.Close()
 	closeXDPMaps(o)
 }
 
@@ -305,15 +305,15 @@ func closeXDPMaps(o *minecraftXDPObjects) {
 		o.Health, o.IpDropHistory, o.Stats,
 	} {
 		if m != nil {
-			m.Close()
+			_ = m.Close()
 		}
 	}
 }
 
 func closeSockopsObjs(o *minecraftSockopsObjects) {
-	o.MinecraftSockops.Close()
-	o.TcpEstablished.Close()
-	o.TcpWhitelist.Close()
-	o.TcpOpenCount.Close()
-	o.Stats.Close()
+	_ = o.MinecraftSockops.Close()
+	_ = o.TcpEstablished.Close()
+	_ = o.TcpWhitelist.Close()
+	_ = o.TcpOpenCount.Close()
+	_ = o.Stats.Close()
 }

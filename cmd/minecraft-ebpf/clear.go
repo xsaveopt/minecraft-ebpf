@@ -18,7 +18,7 @@ func cmdClear(args []string) {
 	ipFlag := fs.String("ip", "", "if set, only clear this single IPv4 from the target map(s) instead of wiping every entry")
 	_ = fs.Parse(args)
 
-	targets := []string{}
+	var targets []string
 	switch *which {
 	case "whitelist":
 		targets = []string{"tcp_whitelist"}
@@ -97,7 +97,7 @@ func clearMapKey(path string, key [4]byte) (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	defer m.Close()
+	defer func() { _ = m.Close() }()
 
 	if err := m.Delete(&key); err != nil {
 		if errors.Is(err, ebpf.ErrKeyNotExist) {
@@ -113,7 +113,7 @@ func clearMap(path string) (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	defer m.Close()
+	defer func() { _ = m.Close() }()
 
 	keys, err := collectKeys(m)
 	if err != nil {

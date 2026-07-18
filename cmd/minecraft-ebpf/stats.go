@@ -63,7 +63,7 @@ func cmdStats(args []string) {
 		if err != nil {
 			return err
 		}
-		defer m.Close()
+		defer func() { _ = m.Close() }()
 		vals, err := readStatsMap(m)
 		if err != nil {
 			return err

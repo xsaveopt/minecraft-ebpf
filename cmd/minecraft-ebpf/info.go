@@ -26,7 +26,7 @@ func mapEntryCount(pinPath, name string) int64 {
 	if err != nil {
 		return -1
 	}
-	defer m.Close()
+	defer func() { _ = m.Close() }()
 	var n int64
 	var key [4]byte
 	val := make([]byte, m.ValueSize())
@@ -42,7 +42,7 @@ func blacklistedNow(pinPath string) int64 {
 	if err != nil {
 		return -1
 	}
-	defer m.Close()
+	defer func() { _ = m.Close() }()
 	now := bootTimeNS()
 	var n int64
 	var key [4]byte
@@ -76,7 +76,7 @@ func cmdInfo(args []string) {
 
 	stats, err := ebpf.LoadPinnedMap(filepath.Join(*pinPath, "stats"), nil)
 	if err == nil {
-		defer stats.Close()
+		defer func() { _ = stats.Close() }()
 		if vals, _ := readStatsMap(stats); vals != nil {
 			byLabel := map[string]uint64{}
 			for i, lbl := range statLabels {

@@ -380,7 +380,7 @@ func handleTop(cfg apiCfg) http.HandlerFunc {
 		}
 		n := 10
 		if s := r.URL.Query().Get("n"); s != "" {
-			fmt.Sscanf(s, "%d", &n)
+			_, _ = fmt.Sscanf(s, "%d", &n)
 		}
 		reason := r.URL.Query().Get("reason")
 		rows, err := topFromMap(cfg.PinPath, which, n, reason)

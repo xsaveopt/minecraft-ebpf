@@ -81,7 +81,7 @@ func cmdRun(args []string) {
 		}
 		log.Fatalf("load: %v", err)
 	}
-	defer l.Close()
+	defer func() { _ = l.Close() }()
 
 	log.Printf("xdp: %s mode on %s", l.XDPMode, *iface)
 	log.Printf("sockops: attached to %s", *cgroup)

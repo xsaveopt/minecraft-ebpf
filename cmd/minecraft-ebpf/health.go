@@ -22,7 +22,7 @@ func cmdHealth(args []string) {
 		fmt.Fprintln(os.Stderr, "open health:", err)
 		os.Exit(1)
 	}
-	defer m.Close()
+	defer func() { _ = m.Close() }()
 
 	now := bootTimeNS()
 	fmt.Printf("%-16s %-10s %-12s %s\n", "IP", "ANOMALIES", "WINDOW_AGE", "BLACKLIST")

@@ -62,7 +62,7 @@ func topFromMap(pinPath, which string, n int, reason string) ([]topRow, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer m.Close()
+	defer func() { _ = m.Close() }()
 
 	now := bootTimeNS()
 	var rows []topRow

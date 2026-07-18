@@ -65,7 +65,7 @@ func dumpTimestampMap(pinPath, name string) {
 		fmt.Fprintln(os.Stderr, "open", name+":", err)
 		return
 	}
-	defer m.Close()
+	defer func() { _ = m.Close() }()
 
 	now := bootTimeNS()
 	fmt.Printf("%-16s %-12s\n", "IP", "AGE")
@@ -91,7 +91,7 @@ func dumpCountMap(pinPath, name string) {
 		fmt.Fprintln(os.Stderr, "open", name+":", err)
 		return
 	}
-	defer m.Close()
+	defer func() { _ = m.Close() }()
 
 	fmt.Printf("%-16s %-10s\n", "IP", "OPEN")
 	var key [4]byte
@@ -112,7 +112,7 @@ func dumpRatelimitMap(pinPath, name string) {
 		fmt.Fprintln(os.Stderr, "open", name+":", err)
 		return
 	}
-	defer m.Close()
+	defer func() { _ = m.Close() }()
 
 	now := bootTimeNS()
 	fmt.Printf("%-16s %-10s %-12s\n", "IP", "TOKENS", "LAST_REFILL")
@@ -141,7 +141,7 @@ func dumpHealthMap(pinPath, name string) {
 		fmt.Fprintln(os.Stderr, "open", name+":", err)
 		return
 	}
-	defer m.Close()
+	defer func() { _ = m.Close() }()
 
 	now := bootTimeNS()
 	fmt.Printf("%-16s %-10s %-12s %-12s\n", "IP", "ANOMALIES", "WINDOW_AGE", "BLACKLIST")
@@ -179,7 +179,7 @@ func dumpDropHistoryMap(pinPath, name string) {
 		fmt.Fprintln(os.Stderr, "open", name+":", err)
 		return
 	}
-	defer m.Close()
+	defer func() { _ = m.Close() }()
 
 	now := bootTimeNS()
 	fmt.Printf("%-16s %-12s %-12s %-10s %s\n", "IP", "FIRST_AGE", "LAST_AGE", "TOTAL", "BY_REASON")
