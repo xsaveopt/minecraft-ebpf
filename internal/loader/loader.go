@@ -264,7 +264,7 @@ func loadSockops(opts Options) (*minecraftSockopsObjects, error) {
 func setVar(spec *ebpf.CollectionSpec, name string, value any) error {
 	v, ok := spec.Variables[name]
 	if !ok {
-		return nil
+		return fmt.Errorf("variable %s not found in spec", name)
 	}
 	if err := v.Set(value); err != nil {
 		return fmt.Errorf("set %s: %w", name, err)

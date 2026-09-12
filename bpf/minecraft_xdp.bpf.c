@@ -87,8 +87,10 @@ static __always_inline enum hs_class classify_handshake(struct xdp_md *ctx,
         return HS_NONE;
     off += (__u32)k;
 
-    if (off >= payload_len)
+    if (payload_len - off < pkt_len)
         return HS_NONE;
+    __u32 limit = off + pkt_len;
+
     __u8 id;
     if (load_byte(ctx, payload_off + off, &id) < 0)
         return HS_NONE;
@@ -96,30 +98,32 @@ static __always_inline enum hs_class classify_handshake(struct xdp_md *ctx,
         return HS_NONE;
     off += 1;
 
-    if (off >= payload_len)
+    if (off >= limit)
         return HS_NONE;
     __u32 proto_ver;
-    k = load_varint(ctx, payload_off + off, payload_len - off, &proto_ver);
+    k = load_varint(ctx, payload_off + off, limit - off, &proto_ver);
     if (k == 0)
         return HS_NONE;
     off += (__u32)k;
 
-    if (off >= payload_len)
+    if (off >= limit)
         return HS_NONE;
     __u32 addr_len;
-    k = load_varint(ctx, payload_off + off, payload_len - off, &addr_len);
+    k = load_varint(ctx, payload_off + off, limit - off, &addr_len);
     if (k == 0)
         return HS_NONE;
     if (addr_len > MC_ADDR_MAX)
-        return HS_MALFORMED;
+        return HS_NONE;
     off += (__u32)k;
 
     __u32 ns_off = off + addr_len + 2;
-    if (ns_off >= payload_len)
+    if (ns_off >= limit)
         return HS_NONE;
     __u32 next_state;
-    k = load_varint(ctx, payload_off + ns_off, payload_len - ns_off, &next_state);
+    k = load_varint(ctx, payload_off + ns_off, limit - ns_off, &next_state);
     if (k == 0)
+        return HS_NONE;
+    if (ns_off + (__u32)k != limit)
         return HS_NONE;
     if (next_state == MC_NEXT_STATE_STATUS)
         return HS_STATUS;
@@ -323,6 +327,12 @@ int minecraft_xdp(struct xdp_md *ctx) {
         return XDP_DROP;
     }
 
+    if (health_is_blacklisted(src)) {
+        record_drop(src, DROP_REASON_UNHEALTHY);
+        stat_bump(STAT_DROP_TCP_UNHEALTHY);
+        return XDP_DROP;
+    }
+
     __u32 ip_tot = bpf_ntohs(ip->tot_len);
 
     __u64 *wl = bpf_map_lookup_elem(&tcp_whitelist, &src);
@@ -413,21 +423,22 @@ int minecraft_xdp(struct xdp_md *ctx) {
         return XDP_PASS;
     }
 
+    __u64 *est = bpf_map_lookup_elem(&tcp_established, &src);
+
     if (hs == HS_MALFORMED) {
-        health_record_anomaly(src);
+        if (est)
+            health_record_anomaly(src);
         record_drop(src, DROP_REASON_MALFORMED_HANDSHAKE);
         stat_bump(STAT_DROP_MALFORMED_HANDSHAKE);
         return XDP_DROP;
     }
 
-    if (health_is_blacklisted(src)) {
-        record_drop(src, DROP_REASON_UNHEALTHY);
-        stat_bump(STAT_DROP_TCP_UNHEALTHY);
-        return XDP_DROP;
-    }
-
     if (hs == HS_STATUS) {
         stat_bump(STAT_TCP_HANDSHAKE_STATUS_SEEN);
+        if (!est) {
+            stat_bump(STAT_TCP_L7_MATCH_NO_EST);
+            return XDP_PASS;
+        }
         if (!ratelimit_take(&status_ratelimit, src, status_period_ns, status_burst)) {
             record_drop(src, DROP_REASON_STATUS_RATELIMIT);
             stat_bump(STAT_DROP_STATUS_RATELIMIT);
@@ -437,19 +448,18 @@ int minecraft_xdp(struct xdp_md *ctx) {
     }
 
     stat_bump(STAT_TCP_HANDSHAKE_LOGIN_SEEN);
+    if (!est) {
+        stat_bump(STAT_TCP_L7_MATCH_NO_EST);
+        return XDP_PASS;
+    }
     if (!ratelimit_take(&login_ratelimit, src, login_period_ns, login_burst)) {
         record_drop(src, DROP_REASON_LOGIN_RATELIMIT);
         stat_bump(STAT_DROP_LOGIN_RATELIMIT);
         return XDP_DROP;
     }
 
-    __u64 *est = bpf_map_lookup_elem(&tcp_established, &src);
-    if (est) {
-        __u64 now = bpf_ktime_get_boot_ns();
-        bpf_map_update_elem(&tcp_whitelist, &src, &now, BPF_ANY);
-        stat_bump(STAT_TCP_L7_PROMOTED);
-    } else {
-        stat_bump(STAT_TCP_L7_MATCH_NO_EST);
-    }
+    __u64 now = bpf_ktime_get_boot_ns();
+    bpf_map_update_elem(&tcp_whitelist, &src, &now, BPF_ANY);
+    stat_bump(STAT_TCP_L7_PROMOTED);
     return XDP_PASS;
 }

@@ -20,12 +20,20 @@ static __always_inline void open_count_inc(__be32 src) {
 
 static __always_inline void open_count_dec(__be32 src) {
     __u64 *count = bpf_map_lookup_elem(&tcp_open_count, &src);
-    if (count && *count > 0) {
-        __u64 old = __sync_fetch_and_sub(count, 1);
-        if (old == 1) {
+    if (!count)
+        return;
+    #pragma unroll
+    for (int i = 0; i < 8; i++) {
+        __u64 cur = *count;
+        if (cur == 0)
+            return;
+        if (__sync_val_compare_and_swap(count, cur, cur - 1) != cur)
+            continue;
+        if (cur == 1) {
             bpf_map_delete_elem(&tcp_established, &src);
             bpf_map_delete_elem(&tcp_whitelist, &src);
         }
+        return;
     }
 }
 
