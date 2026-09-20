@@ -53,8 +53,12 @@ type MapSizes struct {
 	blacklisted atomic.Int64
 }
 
+type statsReader interface {
+	Lookup(key, valueOut any) error
+}
+
 type Collector struct {
-	stats          *ebpf.Map
+	stats          statsReader
 	whitelistMap   *ebpf.Map
 	establishedMap *ebpf.Map
 	synSeenMap     *ebpf.Map

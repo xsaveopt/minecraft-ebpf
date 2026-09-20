@@ -58,6 +58,39 @@ type dropHistoryEntry struct {
 	ByReason            map[string]uint64 `json:"by_reason"`
 }
 
+type mapIterator interface {
+	Next(keyOut, valueOut any) bool
+}
+
+type mapReader interface {
+	Lookup(key, valueOut any) error
+	Iterate() mapIterator
+	ValueSize() uint32
+}
+
+type ebpfMapReader struct {
+	m *ebpf.Map
+}
+
+func (r ebpfMapReader) Lookup(key, valueOut any) error {
+	return r.m.Lookup(key, valueOut)
+}
+
+func (r ebpfMapReader) Iterate() mapIterator {
+	return r.m.Iterate()
+}
+
+func (r ebpfMapReader) ValueSize() uint32 {
+	return r.m.ValueSize()
+}
+
+func wrapMap(m *ebpf.Map) mapReader {
+	if m == nil {
+		return nil
+	}
+	return ebpfMapReader{m: m}
+}
+
 func bootNS() uint64 {
 	var ts unix.Timespec
 	if err := unix.ClockGettime(unix.CLOCK_BOOTTIME, &ts); err != nil {
@@ -79,7 +112,7 @@ func writeJSON(w http.ResponseWriter, v any) {
 	_ = enc.Encode(v)
 }
 
-func handleTimestampMap(m *ebpf.Map) http.HandlerFunc {
+func handleTimestampMap(m mapReader) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		out := []timestampEntry{}
 		if m != nil {
@@ -102,7 +135,7 @@ func handleTimestampMap(m *ebpf.Map) http.HandlerFunc {
 	}
 }
 
-func handleCountMap(m *ebpf.Map) http.HandlerFunc {
+func handleCountMap(m mapReader) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		out := []countEntry{}
 		if m != nil {
@@ -117,7 +150,7 @@ func handleCountMap(m *ebpf.Map) http.HandlerFunc {
 	}
 }
 
-func handleBlacklist(m *ebpf.Map) http.HandlerFunc {
+func handleBlacklist(m mapReader) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		out := []blacklistEntry{}
 		if m != nil {
@@ -169,22 +202,22 @@ func handleIPLookup(l *loader.Loaded) http.HandlerFunc {
 		now := bootNS()
 		out := map[string]any{
 			"ip":               addr,
-			"tcp_whitelist":    lookupTimestamp(l.TCPWhitelist, key, now),
-			"tcp_established":  lookupTimestamp(l.TCPEstablished, key, now),
-			"tcp_syn_seen":     lookupTimestamp(l.TCPSynSeen, key, now),
-			"tcp_open_count":   lookupCount(l.TCPOpenCount, key),
-			"status_ratelimit": lookupRatelimit(l.StatusRatelimit, key, now),
-			"login_ratelimit":  lookupRatelimit(l.LoginRatelimit, key, now),
-			"syn_ratelimit":    lookupRatelimit(l.SynRatelimit, key, now),
-			"conn_ratelimit":   lookupConnLimit(l.ConnRatelimit, key, now),
-			"health":           lookupHealth(l.Health, key, now),
-			"drop_history":     lookupDropHistory(l.IPDropHistory, key, now),
+			"tcp_whitelist":    lookupTimestamp(wrapMap(l.TCPWhitelist), key, now),
+			"tcp_established":  lookupTimestamp(wrapMap(l.TCPEstablished), key, now),
+			"tcp_syn_seen":     lookupTimestamp(wrapMap(l.TCPSynSeen), key, now),
+			"tcp_open_count":   lookupCount(wrapMap(l.TCPOpenCount), key),
+			"status_ratelimit": lookupRatelimit(wrapMap(l.StatusRatelimit), key, now),
+			"login_ratelimit":  lookupRatelimit(wrapMap(l.LoginRatelimit), key, now),
+			"syn_ratelimit":    lookupRatelimit(wrapMap(l.SynRatelimit), key, now),
+			"conn_ratelimit":   lookupConnLimit(wrapMap(l.ConnRatelimit), key, now),
+			"health":           lookupHealth(wrapMap(l.Health), key, now),
+			"drop_history":     lookupDropHistory(wrapMap(l.IPDropHistory), key, now),
 		}
 		writeJSON(w, out)
 	}
 }
 
-func lookupTimestamp(m *ebpf.Map, key [4]byte, now uint64) any {
+func lookupTimestamp(m mapReader, key [4]byte, now uint64) any {
 	if m == nil {
 		return nil
 	}
@@ -199,7 +232,7 @@ func lookupTimestamp(m *ebpf.Map, key [4]byte, now uint64) any {
 	return map[string]any{"age_seconds": age / 1_000_000_000}
 }
 
-func lookupCount(m *ebpf.Map, key [4]byte) any {
+func lookupCount(m mapReader, key [4]byte) any {
 	if m == nil {
 		return nil
 	}
@@ -210,7 +243,7 @@ func lookupCount(m *ebpf.Map, key [4]byte) any {
 	return map[string]any{"count": val}
 }
 
-func lookupRatelimit(m *ebpf.Map, key [4]byte, now uint64) any {
+func lookupRatelimit(m mapReader, key [4]byte, now uint64) any {
 	if m == nil {
 		return nil
 	}
@@ -231,7 +264,7 @@ func lookupRatelimit(m *ebpf.Map, key [4]byte, now uint64) any {
 	}
 }
 
-func lookupConnLimit(m *ebpf.Map, key [4]byte, now uint64) any {
+func lookupConnLimit(m mapReader, key [4]byte, now uint64) any {
 	if m == nil {
 		return nil
 	}
@@ -255,7 +288,7 @@ func lookupConnLimit(m *ebpf.Map, key [4]byte, now uint64) any {
 	}
 }
 
-func lookupDropHistory(m *ebpf.Map, key [4]byte, now uint64) any {
+func lookupDropHistory(m mapReader, key [4]byte, now uint64) any {
 	if m == nil {
 		return nil
 	}
@@ -288,7 +321,7 @@ func lookupDropHistory(m *ebpf.Map, key [4]byte, now uint64) any {
 	}
 }
 
-func lookupHealth(m *ebpf.Map, key [4]byte, now uint64) any {
+func lookupHealth(m mapReader, key [4]byte, now uint64) any {
 	if m == nil {
 		return nil
 	}
@@ -392,7 +425,7 @@ func handleTop(cfg apiCfg) http.HandlerFunc {
 	}
 }
 
-func handleDropHistory(m *ebpf.Map) http.HandlerFunc {
+func handleDropHistory(m mapReader) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		out := []dropHistoryEntry{}
 		if m != nil {
@@ -431,7 +464,7 @@ func handleDropHistory(m *ebpf.Map) http.HandlerFunc {
 	}
 }
 
-func handleHealth(m *ebpf.Map) http.HandlerFunc {
+func handleHealth(m mapReader) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		all := r.URL.Query().Get("all") == "1"
 		out := []map[string]any{}
@@ -471,7 +504,7 @@ func handleHealth(m *ebpf.Map) http.HandlerFunc {
 }
 
 func mapPopulations(l *loader.Loaded) map[string]int64 {
-	count := func(m *ebpf.Map) int64 {
+	count := func(m mapReader) int64 {
 		if m == nil {
 			return -1
 		}
@@ -485,16 +518,16 @@ func mapPopulations(l *loader.Loaded) map[string]int64 {
 		return n
 	}
 	return map[string]int64{
-		"tcp_whitelist":    count(l.TCPWhitelist),
-		"tcp_established":  count(l.TCPEstablished),
-		"tcp_syn_seen":     count(l.TCPSynSeen),
-		"tcp_open_count":   count(l.TCPOpenCount),
-		"status_ratelimit": count(l.StatusRatelimit),
-		"login_ratelimit":  count(l.LoginRatelimit),
-		"syn_ratelimit":    count(l.SynRatelimit),
-		"conn_ratelimit":   count(l.ConnRatelimit),
-		"health":           count(l.Health),
-		"ip_drop_history":  count(l.IPDropHistory),
+		"tcp_whitelist":    count(wrapMap(l.TCPWhitelist)),
+		"tcp_established":  count(wrapMap(l.TCPEstablished)),
+		"tcp_syn_seen":     count(wrapMap(l.TCPSynSeen)),
+		"tcp_open_count":   count(wrapMap(l.TCPOpenCount)),
+		"status_ratelimit": count(wrapMap(l.StatusRatelimit)),
+		"login_ratelimit":  count(wrapMap(l.LoginRatelimit)),
+		"syn_ratelimit":    count(wrapMap(l.SynRatelimit)),
+		"conn_ratelimit":   count(wrapMap(l.ConnRatelimit)),
+		"health":           count(wrapMap(l.Health)),
+		"ip_drop_history":  count(wrapMap(l.IPDropHistory)),
 	}
 }
 
@@ -518,13 +551,13 @@ func registerAPI(mux *http.ServeMux, cfg apiCfg) {
 	mux.HandleFunc("/api/info", handleInfo(cfg))
 	mux.HandleFunc("/api/stats", handleStats(l))
 	mux.HandleFunc("/api/top", handleTop(cfg))
-	mux.HandleFunc("/api/health", handleHealth(l.Health))
-	mux.HandleFunc("/api/whitelist", handleTimestampMap(l.TCPWhitelist))
-	mux.HandleFunc("/api/established", handleTimestampMap(l.TCPEstablished))
-	mux.HandleFunc("/api/syn-seen", handleTimestampMap(l.TCPSynSeen))
-	mux.HandleFunc("/api/open-count", handleCountMap(l.TCPOpenCount))
-	mux.HandleFunc("/api/blacklist", handleBlacklist(l.Health))
-	mux.HandleFunc("/api/drop-history", handleDropHistory(l.IPDropHistory))
+	mux.HandleFunc("/api/health", handleHealth(wrapMap(l.Health)))
+	mux.HandleFunc("/api/whitelist", handleTimestampMap(wrapMap(l.TCPWhitelist)))
+	mux.HandleFunc("/api/established", handleTimestampMap(wrapMap(l.TCPEstablished)))
+	mux.HandleFunc("/api/syn-seen", handleTimestampMap(wrapMap(l.TCPSynSeen)))
+	mux.HandleFunc("/api/open-count", handleCountMap(wrapMap(l.TCPOpenCount)))
+	mux.HandleFunc("/api/blacklist", handleBlacklist(wrapMap(l.Health)))
+	mux.HandleFunc("/api/drop-history", handleDropHistory(wrapMap(l.IPDropHistory)))
 	mux.HandleFunc("/api/ip/", handleIPLookup(l))
 	mux.HandleFunc("/api/state", func(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, []string{
