@@ -46,6 +46,14 @@ struct {
     __type(value, __u64);
     __uint(max_entries, 100000);
     __uint(pinning, LIBBPF_PIN_BY_NAME);
+} tcp_first_data SEC(".maps");
+
+struct {
+    __uint(type, BPF_MAP_TYPE_LRU_HASH);
+    __type(key, __be32);
+    __type(value, __u64);
+    __uint(max_entries, 100000);
+    __uint(pinning, LIBBPF_PIN_BY_NAME);
 } tcp_whitelist SEC(".maps");
 
 struct {

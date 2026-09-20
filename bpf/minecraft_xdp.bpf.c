@@ -409,10 +409,27 @@ int minecraft_xdp(struct xdp_md *ctx) {
         return XDP_PASS;
     __u32 payload_off = 14 + hdrs;
     __u32 payload_len = ip_tot - hdrs;
-    enum hs_class hs = classify_handshake(ctx, payload_off, payload_len);
+
+    __u64 *est = bpf_map_lookup_elem(&tcp_established, &src);
+
+    bool first_segment = true;
+    if (est) {
+        if (bpf_map_lookup_elem(&tcp_first_data, &src)) {
+            first_segment = false;
+        } else {
+            __u64 seen = bpf_ktime_get_boot_ns();
+            bpf_map_update_elem(&tcp_first_data, &src, &seen, BPF_ANY);
+        }
+    }
+
+    enum hs_class hs = first_segment
+                           ? classify_handshake(ctx, payload_off, payload_len)
+                           : HS_NONE;
+    if (hs == HS_MALFORMED && est)
+        hs = HS_NONE;
 
     if (hs == HS_NONE) {
-        if (bpf_map_lookup_elem(&tcp_established, &src)) {
+        if (est) {
             if (!conn_ratelimit_take(src, ip_tot)) {
                 health_record_anomaly(src);
                 record_drop(src, DROP_REASON_CONN_RATELIMIT);
@@ -423,12 +440,7 @@ int minecraft_xdp(struct xdp_md *ctx) {
         return XDP_PASS;
     }
 
-    __u64 *est = bpf_map_lookup_elem(&tcp_established, &src);
-
     if (hs == HS_MALFORMED) {
-        if (est)
-            health_record_anomaly(src);
-        record_drop(src, DROP_REASON_MALFORMED_HANDSHAKE);
         stat_bump(STAT_DROP_MALFORMED_HANDSHAKE);
         return XDP_DROP;
     }

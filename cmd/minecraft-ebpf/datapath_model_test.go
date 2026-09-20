@@ -162,6 +162,9 @@ type verdict struct {
 func datapathVerdict(payload []byte, established bool) verdict {
 	p := newPacketReader(payload)
 	hs := classifyHandshake(p, uint32(len(payload)))
+	if established && hs == hsMalformed {
+		hs = hsNone
+	}
 	v := verdict{pass: true, class: hs}
 
 	switch hs {
@@ -171,8 +174,6 @@ func datapathVerdict(payload []byte, established bool) verdict {
 		}
 		return v
 	case hsMalformed:
-		v.anomaly = established
-		v.dropReason = "malformed_handshake"
 		v.pass = false
 		return v
 	case hsStatus:

@@ -32,6 +32,7 @@ static __always_inline void open_count_dec(__be32 src) {
         if (cur == 1) {
             bpf_map_delete_elem(&tcp_established, &src);
             bpf_map_delete_elem(&tcp_whitelist, &src);
+            bpf_map_delete_elem(&tcp_first_data, &src);
         }
         return;
     }
