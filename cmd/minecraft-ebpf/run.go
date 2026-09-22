@@ -166,6 +166,7 @@ func cmdRun(args []string) {
 	})
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write([]byte("minecraft-ebpf " + version + "\n" +
+			"  /health                      up/degraded (plain text)\n" +
 			"  /metrics                     prometheus counters\n" +
 			"  /api/info                    daemon overview (limits + maps + counters)\n" +
 			"  /api/stats                   counter values (JSON)\n" +

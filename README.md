@@ -112,6 +112,7 @@ minecraft-ebpf clear   --map M [--ip A]        wipe a map, or one IP from it
 
 `http://<addr>:9464` (configurable via `--metrics-addr`):
 
+- `/health` — plain text `up` or `degraded` (503), degraded when the XDP or sockops program is not attached.
 - `/metrics` — Prometheus counters. Main counter is `minecraft_xdp_packets_total{verdict,proto,reason}`; supporting counters/gauges are `minecraft_tcp_*_total`, `minecraft_map_entries{map}`, `minecraft_health_blacklisted_ips`, `minecraft_attached{program}`, `minecraft_build_info`. Labels are deliberately low-cardinality: there are no per-IP labels.
 - `/api/info` — daemon overview (limits + map sizes + counter totals).
 - `/api/stats` — counter values as JSON.

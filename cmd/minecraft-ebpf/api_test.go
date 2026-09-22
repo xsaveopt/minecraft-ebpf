@@ -472,6 +472,40 @@ func TestTopEndpointRejectsBadQueries(t *testing.T) {
 	}
 }
 
+func TestHealthzReportsUpWhenBothProgramsAreAttached(t *testing.T) {
+	rec := serve(t, handleHealthz(func() bool { return true }, func() bool { return true }), "/health")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status %d, want 200", rec.Code)
+	}
+	if rec.Body.String() != "up" {
+		t.Fatalf("body %q, want %q", rec.Body.String(), "up")
+	}
+	if ct := rec.Header().Get("Content-Type"); ct != "text/plain; charset=utf-8" {
+		t.Fatalf("Content-Type %q, want text/plain; charset=utf-8", ct)
+	}
+}
+
+func TestHealthzReportsDegradedWhenEitherProgramIsDetached(t *testing.T) {
+	cases := map[string]struct {
+		xdp, sockops bool
+	}{
+		"xdp detached":     {xdp: false, sockops: true},
+		"sockops detached": {xdp: true, sockops: false},
+		"both detached":    {xdp: false, sockops: false},
+	}
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			rec := serve(t, handleHealthz(func() bool { return tc.xdp }, func() bool { return tc.sockops }), "/health")
+			if rec.Code != http.StatusServiceUnavailable {
+				t.Fatalf("status %d, want 503", rec.Code)
+			}
+			if rec.Body.String() != "degraded" {
+				t.Fatalf("body %q, want %q", rec.Body.String(), "degraded")
+			}
+		})
+	}
+}
+
 func TestRegisteredRoutesAllAnswerWithJSON(t *testing.T) {
 	mux := http.NewServeMux()
 	registerAPI(mux, apiCfg{Loaded: &loader.Loaded{}, PinPath: missingPinPath})

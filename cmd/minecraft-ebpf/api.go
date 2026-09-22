@@ -503,6 +503,19 @@ func handleHealth(m mapReader) http.HandlerFunc {
 	}
 }
 
+func handleHealthz(xdpAttached, sockopsAttached func() bool) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+		w.Header().Set("Cache-Control", "no-store")
+		if !xdpAttached() || !sockopsAttached() {
+			w.WriteHeader(http.StatusServiceUnavailable)
+			_, _ = w.Write([]byte("degraded"))
+			return
+		}
+		_, _ = w.Write([]byte("up"))
+	}
+}
+
 func mapPopulations(l *loader.Loaded) map[string]int64 {
 	count := func(m mapReader) int64 {
 		if m == nil {
@@ -548,6 +561,10 @@ func readCounters(l *loader.Loaded) map[string]uint64 {
 
 func registerAPI(mux *http.ServeMux, cfg apiCfg) {
 	l := cfg.Loaded
+	mux.HandleFunc("/health", handleHealthz(
+		func() bool { return l.XDPLink != nil },
+		func() bool { return l.SockopsLink != nil },
+	))
 	mux.HandleFunc("/api/info", handleInfo(cfg))
 	mux.HandleFunc("/api/stats", handleStats(l))
 	mux.HandleFunc("/api/top", handleTop(cfg))
