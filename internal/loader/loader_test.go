@@ -31,6 +31,7 @@ var xdpTunables = []string{
 var pinnedMaps = []string{
 	"tcp_established",
 	"tcp_syn_seen",
+	"tcp_first_data",
 	"tcp_whitelist",
 	"status_ratelimit",
 	"login_ratelimit",
