@@ -415,7 +415,8 @@ int minecraft_xdp(struct xdp_md *ctx) {
     bool first_segment = true;
     if (est) {
         if (bpf_map_lookup_elem(&tcp_first_data, &src)) {
-            first_segment = false;
+            __u64 *open = bpf_map_lookup_elem(&tcp_open_count, &src);
+            first_segment = open && *open > 1;
         } else {
             __u64 seen = bpf_ktime_get_boot_ns();
             bpf_map_update_elem(&tcp_first_data, &src, &seen, BPF_ANY);
