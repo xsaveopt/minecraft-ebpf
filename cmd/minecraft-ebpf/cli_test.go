@@ -134,10 +134,10 @@ func TestInspectLinePadsTheLabelColumn(t *testing.T) {
 func TestDumpReportsAnUnreachablePinPathOnStderr(t *testing.T) {
 	stdout, stderr := captureOutput(t, func() {
 		dumpTimestampMap(missingPinPath, "tcp_whitelist")
-		dumpCountMap(missingPinPath, "tcp_open_count")
+		dumpCountMap(missingPinPath)
 		dumpRatelimitMap(missingPinPath, "login_ratelimit")
-		dumpHealthMap(missingPinPath, "health")
-		dumpDropHistoryMap(missingPinPath, "ip_drop_history")
+		dumpHealthMap(missingPinPath)
+		dumpDropHistoryMap(missingPinPath)
 	})
 	if stdout != "" {
 		t.Errorf("stdout = %q, want nothing when no map can be opened", stdout)

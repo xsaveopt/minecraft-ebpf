@@ -27,22 +27,22 @@ func cmdDump(args []string) {
 	case "syn-seen":
 		dumpTimestampMap(*pinPath, "tcp_syn_seen")
 	case "open-count":
-		dumpCountMap(*pinPath, "tcp_open_count")
+		dumpCountMap(*pinPath)
 	case "status-ratelimit":
 		dumpRatelimitMap(*pinPath, "status_ratelimit")
 	case "login-ratelimit":
 		dumpRatelimitMap(*pinPath, "login_ratelimit")
 	case "health":
-		dumpHealthMap(*pinPath, "health")
+		dumpHealthMap(*pinPath)
 	case "drop-history":
-		dumpDropHistoryMap(*pinPath, "ip_drop_history")
+		dumpDropHistoryMap(*pinPath)
 	case "all":
 		fmt.Println("== tcp_established ==")
 		dumpTimestampMap(*pinPath, "tcp_established")
 		fmt.Println("\n== tcp_syn_seen ==")
 		dumpTimestampMap(*pinPath, "tcp_syn_seen")
 		fmt.Println("\n== tcp_open_count ==")
-		dumpCountMap(*pinPath, "tcp_open_count")
+		dumpCountMap(*pinPath)
 		fmt.Println("\n== tcp_whitelist ==")
 		dumpTimestampMap(*pinPath, "tcp_whitelist")
 		fmt.Println("\n== status_ratelimit ==")
@@ -50,9 +50,9 @@ func cmdDump(args []string) {
 		fmt.Println("\n== login_ratelimit ==")
 		dumpRatelimitMap(*pinPath, "login_ratelimit")
 		fmt.Println("\n== health ==")
-		dumpHealthMap(*pinPath, "health")
+		dumpHealthMap(*pinPath)
 		fmt.Println("\n== ip_drop_history ==")
-		dumpDropHistoryMap(*pinPath, "ip_drop_history")
+		dumpDropHistoryMap(*pinPath)
 	default:
 		fmt.Fprintln(os.Stderr, "unknown map:", *which)
 		os.Exit(2)
@@ -85,7 +85,8 @@ func dumpTimestampMap(pinPath, name string) {
 	}
 }
 
-func dumpCountMap(pinPath, name string) {
+func dumpCountMap(pinPath string) {
+	const name = "tcp_open_count"
 	m, err := ebpf.LoadPinnedMap(filepath.Join(pinPath, name), nil)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "open", name+":", err)
@@ -135,7 +136,8 @@ func dumpRatelimitMap(pinPath, name string) {
 	}
 }
 
-func dumpHealthMap(pinPath, name string) {
+func dumpHealthMap(pinPath string) {
+	const name = "health"
 	m, err := ebpf.LoadPinnedMap(filepath.Join(pinPath, name), nil)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "open", name+":", err)
@@ -173,7 +175,8 @@ func dumpHealthMap(pinPath, name string) {
 	}
 }
 
-func dumpDropHistoryMap(pinPath, name string) {
+func dumpDropHistoryMap(pinPath string) {
+	const name = "ip_drop_history"
 	m, err := ebpf.LoadPinnedMap(filepath.Join(pinPath, name), nil)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "open", name+":", err)

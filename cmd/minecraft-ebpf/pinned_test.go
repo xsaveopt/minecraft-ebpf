@@ -276,7 +276,7 @@ func rowFor(rows [][]string, ip string) []string {
 func TestDumpPrintsEveryEntryOfEachMap(t *testing.T) {
 	f := pinEveryMap(t)
 
-	stdout, stderr := captureOutput(t, func() { dumpCountMap(f.dir, "tcp_open_count") })
+	stdout, stderr := captureOutput(t, func() { dumpCountMap(f.dir) })
 	rows := dataLines(stdout)
 	if stderr != "" || strings.Join(rows[0], " ") != "IP OPEN" || len(rows) != 4 {
 		t.Fatalf("count dump:\n%s\nstderr: %s", stdout, stderr)
@@ -295,7 +295,7 @@ func TestDumpPrintsEveryEntryOfEachMap(t *testing.T) {
 		t.Errorf("ratelimit row %v, want 2 tokens refilled about 4s ago", r)
 	}
 
-	stdout, _ = captureOutput(t, func() { dumpHealthMap(f.dir, "health") })
+	stdout, _ = captureOutput(t, func() { dumpHealthMap(f.dir) })
 	rows = dataLines(stdout)
 	if r := rowFor(rows, hotIP); len(r) != 5 || r[1] != "9" || r[3] != "in" {
 		t.Errorf("blacklisted health row %v", r)
@@ -304,7 +304,7 @@ func TestDumpPrintsEveryEntryOfEachMap(t *testing.T) {
 		t.Errorf("expired health row %v, want no blacklist", r)
 	}
 
-	stdout, _ = captureOutput(t, func() { dumpDropHistoryMap(f.dir, "ip_drop_history") })
+	stdout, _ = captureOutput(t, func() { dumpDropHistoryMap(f.dir) })
 	if r := rowFor(dataLines(stdout), coldIP); len(r) != 5 || r[1] != "1m0s" || r[3] != "3" || r[4] != "status_ratelimit=2,login_ratelimit=1" {
 		t.Errorf("drop history row %v", r)
 	}
