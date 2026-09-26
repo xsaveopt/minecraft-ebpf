@@ -318,7 +318,9 @@ func (c *Collector) Collect(ch chan<- prometheus.Metric) {
 	mapSize("health", c.sizes.health.Load())
 	mapSize("ip_drop_history", c.sizes.dropHistory.Load())
 
-	ch <- prometheus.MustNewConstMetric(c.blacklisted, prometheus.GaugeValue, float64(c.sizes.blacklisted.Load()))
+	if v := c.sizes.blacklisted.Load(); v >= 0 {
+		ch <- prometheus.MustNewConstMetric(c.blacklisted, prometheus.GaugeValue, float64(v))
+	}
 	ch <- prometheus.MustNewConstMetric(
 		c.buildInfo, prometheus.GaugeValue, 1,
 		c.version, c.iface, fmt.Sprintf("%d", c.port),
